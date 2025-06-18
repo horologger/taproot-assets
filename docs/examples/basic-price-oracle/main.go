@@ -2,6 +2,8 @@
 // QueryAssetRates RPC method. The server listens on localhost:8095 and returns
 // the asset rates for a given transaction type, subject asset, and payment
 // asset.
+// Add Kraken API websocket prices from.
+// https://docs.kraken.com/rest/#operation/getAssetInfo
 package main
 
 import (
