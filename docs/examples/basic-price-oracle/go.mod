@@ -1,6 +1,8 @@
 module basic-price-oracle
 
-go 1.23.9
+go 1.23.6
+
+toolchain go1.23.9
 
 // We want to format raw bytes as hex instead of base64. The forked version
 // allows us to specify that as an option.
@@ -50,7 +52,6 @@ require (
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fergusstrange/embedded-postgres v1.25.0 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
