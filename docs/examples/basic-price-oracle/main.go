@@ -39,13 +39,19 @@ const (
 
 	// supportedAssetIdStr is the hex-encoded asset ID for which this price
 	// oracle provides exchange rates.
-	supportedAssetIdStr = "7b4336d33b019df9438e586f83c587ca00fa6560249" +
-		"7b93ace193e9ce53b1a67"
+	// supportedAssetIdStr = "7b4336d33b019df9438e586f83c587ca00fa6560249" +
+	// 	"7b93ace193e9ce53b1a67"
+
+	// drewcoin
+	supportedAssetIdStr = "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70"
 
 	// supportedGroupKeyStr is the hex-encoded asset group key for which
 	// this price oracle provides exchange rates.
-	supportedGroupKeyStr = "02875ce409b587a6656357639d099ad9eb08396d0d" +
-		"fea8930a45e742c81d6fc782"
+	// supportedGroupKeyStr = "02875ce409b587a6656357639d099ad9eb08396d0d" +
+	// 	"fea8930a45e742c81d6fc782"
+
+	// drewcoin
+	supportedGroupKeyStr = "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d"
 )
 
 // setupLogger sets up the logger to write logs to a file.

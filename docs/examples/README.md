@@ -23,7 +23,8 @@ The basic price oracle server implements the `QueryAssetRates` RPC method from t
 
 ## Server Features
 
-- **Supported Asset**: Only supports one specific asset ID
+- **Supported Asset**: Only supports one specific asset ID (drewcoin)
+- **Supported Group Key**: Also supports the asset group key for the same asset
 - **Payment Asset**: Only supports BTC as payment asset
 - **Transaction Types**: Supports both PURCHASE and SALE transactions
 - **Rate Expiry**: Dynamic expiry based on transaction amount
@@ -98,6 +99,10 @@ The test suite includes the following test scenarios:
 - Tests rate expiry behavior for large transactions (>100,000 units)
 - Expected: Returns 1-minute expiry instead of 5-minute expiry
 
+### 6. Group Key Query
+- Tests querying using the asset group key instead of asset ID
+- Expected: Returns the same rates as asset ID queries
+
 ## API Reference
 
 ### QueryAssetRates RPC Method
@@ -148,9 +153,10 @@ BTC is represented as an asset with all-zero asset ID:
 
 ### Supported Asset
 
-The server supports only one specific asset:
+The server supports only one specific asset (drewcoin):
 ```
-7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67
+Asset ID: 11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70
+Group Key: 028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d
 ```
 
 ## Rate Calculation

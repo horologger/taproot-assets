@@ -14,6 +14,8 @@ import (
 
 const (
 	serverAddress = "localhost:8095"
+	// Updated to match the new supported asset ID (drewcoin)
+	supportedAssetIdStr = "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70"
 )
 
 func main() {
@@ -54,6 +56,10 @@ func main() {
 	// Test 5: Query with large amount (should trigger 1-minute expiry)
 	fmt.Println("\n=== Test 5: Large Amount Query ===")
 	testLargeAmountQuery(client)
+
+	// Test 6: Query using group key instead of asset ID
+	fmt.Println("\n=== Test 6: Group Key Query ===")
+	testGroupKeyQuery(client)
 }
 
 func testPurchaseQuery(client oraclerpc.PriceOracleClient) {
@@ -64,7 +70,7 @@ func testPurchaseQuery(client oraclerpc.PriceOracleClient) {
 	req := &oraclerpc.QueryAssetRatesRequest{
 		SubjectAsset: &oraclerpc.AssetSpecifier{
 			Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-				AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+				AssetIdStr: supportedAssetIdStr,
 			},
 		},
 		SubjectAssetMaxAmount: 1000,
@@ -94,7 +100,7 @@ func testSaleQuery(client oraclerpc.PriceOracleClient) {
 	req := &oraclerpc.QueryAssetRatesRequest{
 		SubjectAsset: &oraclerpc.AssetSpecifier{
 			Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-				AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+				AssetIdStr: supportedAssetIdStr,
 			},
 		},
 		SubjectAssetMaxAmount: 1000,
@@ -167,7 +173,7 @@ func testWithAssetRatesHint(client oraclerpc.PriceOracleClient) {
 	req := &oraclerpc.QueryAssetRatesRequest{
 		SubjectAsset: &oraclerpc.AssetSpecifier{
 			Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-				AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+				AssetIdStr: supportedAssetIdStr,
 			},
 		},
 		SubjectAssetMaxAmount: 1000,
@@ -197,10 +203,40 @@ func testLargeAmountQuery(client oraclerpc.PriceOracleClient) {
 	req := &oraclerpc.QueryAssetRatesRequest{
 		SubjectAsset: &oraclerpc.AssetSpecifier{
 			Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-				AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+				AssetIdStr: supportedAssetIdStr,
 			},
 		},
 		SubjectAssetMaxAmount: 200000, // > 100,000
+		PaymentAsset: &oraclerpc.AssetSpecifier{
+			Id: &oraclerpc.AssetSpecifier_AssetIdStr{
+				AssetIdStr: "0000000000000000000000000000000000000000000000000000000000000000",
+			},
+		},
+		TransactionType: oraclerpc.TransactionType_PURCHASE,
+		AssetRatesHint:  nil,
+	}
+
+	resp, err := client.QueryAssetRates(ctx, req)
+	if err != nil {
+		log.Printf("Error querying asset rates: %v", err)
+		return
+	}
+
+	printResponse(resp)
+}
+
+func testGroupKeyQuery(client oraclerpc.PriceOracleClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create request using group key instead of asset ID
+	req := &oraclerpc.QueryAssetRatesRequest{
+		SubjectAsset: &oraclerpc.AssetSpecifier{
+			Id: &oraclerpc.AssetSpecifier_GroupKeyStr{
+				GroupKeyStr: "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d",
+			},
+		},
+		SubjectAssetMaxAmount: 1000,
 		PaymentAsset: &oraclerpc.AssetSpecifier{
 			Id: &oraclerpc.AssetSpecifier_AssetIdStr{
 				AssetIdStr: "0000000000000000000000000000000000000000000000000000000000000000",

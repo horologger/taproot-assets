@@ -47,7 +47,7 @@ func main() {
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-                AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+                AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
             },
         },
         SubjectAssetMaxAmount: 1000,
@@ -90,7 +90,7 @@ Assets are specified using the `AssetSpecifier` message with a oneof field:
 // For hex string representation (recommended for REST)
 assetSpec := &oraclerpc.AssetSpecifier{
     Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-        AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+        AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
     },
 }
 
@@ -98,6 +98,13 @@ assetSpec := &oraclerpc.AssetSpecifier{
 assetSpec := &oraclerpc.AssetSpecifier{
     Id: &oraclerpc.AssetSpecifier_AssetId{
         AssetId: []byte{...}, // 32-byte asset ID
+    },
+}
+
+// For group key hex string representation
+groupKeySpec := &oraclerpc.AssetSpecifier{
+    Id: &oraclerpc.AssetSpecifier_GroupKeyStr{
+        GroupKeyStr: "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d",
     },
 }
 ```
@@ -147,7 +154,46 @@ func getPurchaseRate(client oraclerpc.PriceOracleClient, amount uint64) (*oracle
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-                AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+                AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
+            },
+        },
+        SubjectAssetMaxAmount: amount,
+        PaymentAsset: &oraclerpc.AssetSpecifier{
+            Id: &oraclerpc.AssetSpecifier_AssetIdStr{
+                AssetIdStr: "0000000000000000000000000000000000000000000000000000000000000000",
+            },
+        },
+        TransactionType: oraclerpc.TransactionType_PURCHASE,
+        AssetRatesHint:  nil,
+    }
+
+    resp, err := client.QueryAssetRates(ctx, req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query asset rates: %v", err)
+    }
+
+    switch result := resp.Result.(type) {
+    case *oraclerpc.QueryAssetRatesResponse_Ok:
+        return result.Ok.AssetRates, nil
+    case *oraclerpc.QueryAssetRatesResponse_Error:
+        return nil, fmt.Errorf("server error: %s", result.Error.Message)
+    default:
+        return nil, fmt.Errorf("unexpected response type")
+    }
+}
+```
+
+### Getting Purchase Rate Using Group Key
+
+```go
+func getPurchaseRateByGroupKey(client oraclerpc.PriceOracleClient, amount uint64) (*oraclerpc.AssetRates, error) {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    req := &oraclerpc.QueryAssetRatesRequest{
+        SubjectAsset: &oraclerpc.AssetSpecifier{
+            Id: &oraclerpc.AssetSpecifier_GroupKeyStr{
+                GroupKeyStr: "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d",
             },
         },
         SubjectAssetMaxAmount: amount,
@@ -186,7 +232,7 @@ func acceptProposedRate(client oraclerpc.PriceOracleClient, proposedRate *oracle
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-                AssetIdStr: "7b4336d33b019df9438e586f83c587ca00fa65602497b93ace193e9ce53b1a67",
+                AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
             },
         },
         SubjectAssetMaxAmount: amount,
@@ -312,4 +358,13 @@ func queryWithRetry(client oraclerpc.PriceOracleClient, req *oraclerpc.QueryAsse
 
 ## Testing
 
-You can use the provided test client (`test_rpc_client.go`) as a reference for testing your implementation. The test client demonstrates all the common usage patterns and error conditions. 
+You can use the provided test client (`test_rpc_client.go`) as a reference for testing your implementation. The test client demonstrates all the common usage patterns and error conditions.
+
+## Supported Assets
+
+The current server supports the following asset (drewcoin):
+
+- **Asset ID**: `11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70`
+- **Group Key**: `028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d`
+
+Both the asset ID and group key can be used to query rates for the same asset. 
