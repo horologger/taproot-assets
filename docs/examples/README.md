@@ -81,11 +81,11 @@ The test suite includes the following test scenarios:
 
 ### 1. PURCHASE Transaction
 - Tests asset rates for buying the supported asset with BTC
-- Expected: Returns purchase rate (42,000,160,000 asset units per BTC)
+- Expected: Returns purchase rate (102,500,000,000 asset units per BTC)
 
 ### 2. SALE Transaction  
 - Tests asset rates for selling the supported asset for BTC
-- Expected: Returns sale rate (39,000,220,000 asset units per BTC)
+- Expected: Returns sale rate (97,500,000,000 asset units per BTC)
 
 ### 3. Unsupported Asset
 - Tests query with an unsupported asset ID
@@ -161,13 +161,35 @@ Group Key: 028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d
 
 ## Rate Calculation
 
+The server uses a configurable spread-based pricing model:
+
+### Configuration
+- **Base Rate**: 100,000,000,000 asset units per BTC (represents the "fair" market price)
+- **Spread Percentage**: 10% (configurable via `spreadPercentage` constant)
+- **Spread Calculation**: The spread is split evenly between buy and sell rates
+
 ### Purchase Rate
-- **Rate**: 42,000,160,000 asset units per BTC
-- **Meaning**: To buy 1 BTC worth of the asset, you need 42,000,160,000 asset units
+- **Calculation**: Base rate + (Base rate × Spread percentage ÷ 2)
+- **Current Rate**: 105,000,000,000 asset units per BTC
+- **Meaning**: To buy 1 BTC worth of the asset, you need 105,000,000,000 asset units
 
 ### Sale Rate  
-- **Rate**: 39,000,220,000 asset units per BTC
-- **Meaning**: When selling 39,000,220,000 asset units, you receive 1 BTC
+- **Calculation**: Base rate - (Base rate × Spread percentage ÷ 2)
+- **Current Rate**: 95,000,000,000 asset units per BTC
+- **Meaning**: When selling 95,000,000,000 asset units, you receive 1 BTC
+
+### Adjusting the Spread
+To change the spread, modify the `spreadPercentage` constant in `basic-price-oracle/main.go`:
+```go
+// 5% spread (2.5% on each side)
+spreadPercentage = 5
+
+// 10% spread (5% on each side)  
+spreadPercentage = 10
+
+// 20% spread (10% on each side)
+spreadPercentage = 20
+```
 
 ### Rate Expiry
 - **Default**: 5 minutes for transactions ≤ 100,000 units

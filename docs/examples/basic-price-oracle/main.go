@@ -4,6 +4,10 @@
 // asset.
 // Add Kraken API websocket prices from.
 // https://docs.kraken.com/rest/#operation/getAssetInfo
+// https://docs.kraken.com/api/docs/websocket-v2/ticker
+// https://docs.kraken.com/api/docs/guides/spot-ws-intro
+// wss://ws.kraken.com/v2
+
 package main
 
 import (
@@ -52,6 +56,16 @@ const (
 
 	// drewcoin
 	supportedGroupKeyStr = "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d"
+
+	// baseAssetRate is the base rate for the asset in TAP asset units per BTC.
+	// This represents the "fair" market price before applying spread.
+	baseAssetRate = 100_000_000_000
+
+	// spreadPercentage is the spread percentage applied to create buy/sell rates.
+	// A value of 5 means 5% spread (2.5% on each side).
+	// The spread is applied as: buy rate = base rate + (base rate * spread/2)
+	//                           sell rate = base rate - (base rate * spread/2)
+	spreadPercentage = 5
 )
 
 // setupLogger sets up the logger to write logs to a file.
@@ -177,20 +191,20 @@ func isSupportedSubjectAsset(subjectAsset *oraclerpc.AssetSpecifier) bool {
 // All rates returned by the price oracle service to tapd nodes are expressed as
 // TAP asset units per BTC.
 //
-// Suppose the real-world price of 1 BTC is $42,000.16. To express this as a
+// Suppose the real-world price of 1 BTC is $100,000.00. To express this as a
 // rate in TAP asset units per BTC, multiply by the decimal display conversion
 // factor (10^decimalDisplay):
 //
-// realWorldPrice      = 42,000.16
+// realWorldPrice      = 100,000.00
 // decimalDisplay      = 6
 // tapAssetUnitsPerBtc = realWorldPrice * (10^decimalDisplay)
 //
-//	= 42,000.16 * 1,000,000
-//	= 42,000,160,000
+//	= 100,000.00 * 1,000,000
+//	= 100,000,000,000
 //
 // Therefore, the price oracle should return the rate:
 //
-// rfqmath.NewBigIntFixedPoint(42_000_160_000, 0)
+// rfqmath.NewBigIntFixedPoint(100_000_000_000, 0)
 //
 // ## When is the FixedPoint representation useful?
 //
@@ -219,7 +233,10 @@ func isSupportedSubjectAsset(subjectAsset *oraclerpc.AssetSpecifier) bool {
 //
 // rfqmath.NewBigIntFixedPoint(1, 5)
 func getPurchaseRate() rfqmath.BigIntFixedPoint {
-	return rfqmath.NewBigIntFixedPoint(42_000_160_000, 0)
+	// Calculate buy rate: base rate + (base rate * spread/2)
+	spreadAmount := (baseAssetRate * spreadPercentage) / 100
+	buyRate := baseAssetRate + (spreadAmount / 2)
+	return rfqmath.NewBigIntFixedPoint(uint64(buyRate), 0)
 }
 
 // getSaleRate returns the sell/sale rate for the asset. The units of the
@@ -227,7 +244,10 @@ func getPurchaseRate() rfqmath.BigIntFixedPoint {
 //
 // NOTE: see getPurchaseRate for more information.
 func getSaleRate() rfqmath.BigIntFixedPoint {
-	return rfqmath.NewBigIntFixedPoint(39_000_220_000, 0)
+	// Calculate sell rate: base rate - (base rate * spread/2)
+	spreadAmount := (baseAssetRate * spreadPercentage) / 100
+	sellRate := baseAssetRate - (spreadAmount / 2)
+	return rfqmath.NewBigIntFixedPoint(uint64(sellRate), 0)
 }
 
 // getAssetRates returns the asset rates for a given transaction type and
