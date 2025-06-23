@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -27,8 +28,10 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/lightninglabs/taproot-assets/rfqmath"
 	"github.com/lightninglabs/taproot-assets/rfqmsg"
 	oraclerpc "github.com/lightninglabs/taproot-assets/taprpc/priceoraclerpc"
@@ -40,6 +43,13 @@ import (
 const (
 	// serviceListenAddress is the listening address of the service.
 	serviceListenAddress = "localhost:8095"
+
+	// Kraken WebSocket configuration
+	krakenWebSocketURL   = "wss://ws.kraken.com/v2"
+	krakenReconnectDelay = 5 * time.Second
+	krakenPingInterval   = 30 * time.Second
+	krakenPongWait       = 60 * time.Second
+	krakenWriteWait      = 10 * time.Second
 
 	// supportedAssetIdStr is the hex-encoded asset ID for which this price
 	// oracle provides exchange rates.
@@ -68,6 +78,39 @@ const (
 	spreadPercentage = 5
 )
 
+// KrakenWebSocketClient represents a WebSocket client for Kraken API
+type KrakenWebSocketClient struct {
+	conn        *websocket.Conn
+	url         string
+	done        chan struct{}
+	mu          sync.RWMutex
+	isConnected bool
+	lastPrice   float64
+	lastUpdate  time.Time
+}
+
+// KrakenTickerMessage represents a ticker message from Kraken WebSocket
+type KrakenTickerMessage struct {
+	Method string `json:"method"`
+	Params struct {
+		Channel string `json:"channel"`
+		Symbol  string `json:"symbol"`
+	} `json:"params"`
+	Data []struct {
+		Last float64 `json:"last"`
+		Time int64   `json:"time"`
+	} `json:"data"`
+}
+
+// KrakenSubscribeMessage represents a subscription message for Kraken WebSocket
+type KrakenSubscribeMessage struct {
+	Method string `json:"method"`
+	Params struct {
+		Channel string   `json:"channel"`
+		Symbol  []string `json:"symbol"`
+	} `json:"params"`
+}
+
 // setupLogger sets up the logger to write logs to a file.
 func setupLogger() {
 	// Create a log file.
@@ -92,10 +135,200 @@ func setupLogger() {
 	})
 }
 
+// NewKrakenWebSocketClient creates a new Kraken WebSocket client
+func NewKrakenWebSocketClient() *KrakenWebSocketClient {
+	return &KrakenWebSocketClient{
+		url:         krakenWebSocketURL,
+		done:        make(chan struct{}),
+		isConnected: false,
+	}
+}
+
+// Connect establishes a WebSocket connection to Kraken
+func (k *KrakenWebSocketClient) Connect() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	if k.isConnected {
+		return nil
+	}
+
+	logrus.Infof("Connecting to Kraken WebSocket: %s", k.url)
+
+	conn, _, err := websocket.DefaultDialer.Dial(k.url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Kraken WebSocket: %v", err)
+	}
+
+	k.conn = conn
+	k.isConnected = true
+
+	// Set up connection parameters
+	k.conn.SetPongHandler(func(string) error {
+		k.conn.SetReadDeadline(time.Now().Add(krakenPongWait))
+		return nil
+	})
+
+	logrus.Info("Successfully connected to Kraken WebSocket")
+	return nil
+}
+
+// Subscribe subscribes to a ticker channel for a specific symbol
+func (k *KrakenWebSocketClient) Subscribe(symbol string) error {
+	k.mu.RLock()
+	if !k.isConnected {
+		k.mu.RUnlock()
+		return fmt.Errorf("not connected to Kraken WebSocket")
+	}
+	k.mu.RUnlock()
+
+	subscribeMsg := KrakenSubscribeMessage{
+		Method: "subscribe",
+	}
+	subscribeMsg.Params.Channel = "ticker"
+	subscribeMsg.Params.Symbol = []string{symbol}
+
+	message, err := json.Marshal(subscribeMsg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal subscribe message: %v", err)
+	}
+
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	err = k.conn.WriteMessage(websocket.TextMessage, message)
+	if err != nil {
+		return fmt.Errorf("failed to send subscribe message: %v", err)
+	}
+
+	logrus.Infof("Subscribed to ticker for symbol: %s", symbol)
+	return nil
+}
+
+// ReadMessages reads and processes incoming WebSocket messages
+func (k *KrakenWebSocketClient) ReadMessages() {
+	for {
+		select {
+		case <-k.done:
+			return
+		default:
+			k.mu.RLock()
+			if !k.isConnected {
+				k.mu.RUnlock()
+				return
+			}
+			k.mu.RUnlock()
+
+			_, message, err := k.conn.ReadMessage()
+			if err != nil {
+				logrus.Errorf("Error reading WebSocket message: %v", err)
+				k.reconnect()
+				continue
+			}
+
+			k.processMessage(message)
+		}
+	}
+}
+
+// processMessage processes incoming WebSocket messages
+func (k *KrakenWebSocketClient) processMessage(message []byte) {
+	// Check if this is a heartbeat message and suppress logging
+	if string(message) == `{"channel":"heartbeat"}` {
+		return // Skip processing heartbeat messages entirely
+	}
+
+	// logrus.Infof("Received raw message: %s", string(message))
+
+	var tickerMsg KrakenTickerMessage
+	err := json.Unmarshal(message, &tickerMsg)
+	if err != nil {
+		logrus.Errorf("Failed to unmarshal ticker message: %v", err)
+		logrus.Infof("Raw message that failed to parse: %s", string(message))
+		return
+	}
+
+	// logrus.Infof("Parsed ticker message: Method=%s, Channel=%s, Symbol=%s, Data length=%d",
+	// 	tickerMsg.Method, tickerMsg.Params.Channel, tickerMsg.Params.Symbol, len(tickerMsg.Data))
+
+	if len(tickerMsg.Data) > 0 {
+		// logrus.Infof("Ticker data: %+v", tickerMsg.Data[0])
+		price := tickerMsg.Data[0].Last
+
+		k.mu.Lock()
+		k.lastPrice = price
+		k.lastUpdate = time.Now()
+		k.mu.Unlock()
+
+		logrus.Infof("Received price update: %f", price)
+	} else {
+		logrus.Infof("No ticker data in message")
+	}
+}
+
+// GetLastPrice returns the last received price
+func (k *KrakenWebSocketClient) GetLastPrice() (float64, time.Time) {
+	k.mu.RLock()
+	defer k.mu.RUnlock()
+	return k.lastPrice, k.lastUpdate
+}
+
+// reconnect attempts to reconnect to the WebSocket
+func (k *KrakenWebSocketClient) reconnect() {
+	logrus.Info("Attempting to reconnect to Kraken WebSocket...")
+
+	k.mu.Lock()
+	k.isConnected = false
+	if k.conn != nil {
+		k.conn.Close()
+	}
+	k.mu.Unlock()
+
+	time.Sleep(krakenReconnectDelay)
+
+	err := k.Connect()
+	if err != nil {
+		logrus.Errorf("Failed to reconnect: %v", err)
+		return
+	}
+
+	// Resubscribe to the ticker
+	err = k.Subscribe("BTC/USD")
+	if err != nil {
+		logrus.Errorf("Failed to resubscribe: %v", err)
+	}
+}
+
+// Close closes the WebSocket connection
+func (k *KrakenWebSocketClient) Close() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	close(k.done)
+
+	if k.conn != nil {
+		k.conn.Close()
+	}
+
+	k.isConnected = false
+	logrus.Info("Kraken WebSocket connection closed")
+}
+
+// parseFloat is a helper function to parse float strings
+func parseFloat(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(s, "%f", &f)
+	return f, err
+}
+
 // RpcPriceOracleServer is a basic example RPC price oracle server.
 type RpcPriceOracleServer struct {
 	oraclerpc.UnimplementedPriceOracleServer
+	wsClient *KrakenWebSocketClient
 }
+
+// Global WebSocket client instance
+var globalWSClient *KrakenWebSocketClient
 
 // isSupportedAssetID returns true if the given asset ID is supported by the
 // price oracle, and false otherwise.
@@ -233,9 +466,28 @@ func isSupportedSubjectAsset(subjectAsset *oraclerpc.AssetSpecifier) bool {
 //
 // rfqmath.NewBigIntFixedPoint(1, 5)
 func getPurchaseRate() rfqmath.BigIntFixedPoint {
-	// Calculate buy rate: base rate + (base rate * spread/2)
+	// Try to get real-time price from WebSocket
+	if globalWSClient != nil {
+		price, lastUpdate := globalWSClient.GetLastPrice()
+		if price > 0 && time.Since(lastUpdate) < 5*time.Minute {
+			// Use real-time price: convert USD price to TAP asset units per BTC
+			// Assuming 1 TAP asset unit = $1 (decimal display = 6)
+			realTimeRate := uint64(price * 1_000_000) // Convert USD to TAP asset units
+
+			// Apply spread
+			spreadAmount := (realTimeRate * spreadPercentage) / 100
+			buyRate := realTimeRate + (spreadAmount / 2)
+
+			logrus.Infof("Using real-time price: $%.2f -> %d TAP units/BTC (buy rate)",
+				price, buyRate)
+			return rfqmath.NewBigIntFixedPoint(buyRate, 0)
+		}
+	}
+
+	// Fallback to base rate calculation
 	spreadAmount := (baseAssetRate * spreadPercentage) / 100
 	buyRate := baseAssetRate + (spreadAmount / 2)
+	logrus.Infof("Using base rate: %d TAP units/BTC (buy rate)", buyRate)
 	return rfqmath.NewBigIntFixedPoint(uint64(buyRate), 0)
 }
 
@@ -244,9 +496,28 @@ func getPurchaseRate() rfqmath.BigIntFixedPoint {
 //
 // NOTE: see getPurchaseRate for more information.
 func getSaleRate() rfqmath.BigIntFixedPoint {
-	// Calculate sell rate: base rate - (base rate * spread/2)
+	// Try to get real-time price from WebSocket
+	if globalWSClient != nil {
+		price, lastUpdate := globalWSClient.GetLastPrice()
+		if price > 0 && time.Since(lastUpdate) < 5*time.Minute {
+			// Use real-time price: convert USD price to TAP asset units per BTC
+			// Assuming 1 TAP asset unit = $1 (decimal display = 6)
+			realTimeRate := uint64(price * 1_000_000) // Convert USD to TAP asset units
+
+			// Apply spread
+			spreadAmount := (realTimeRate * spreadPercentage) / 100
+			sellRate := realTimeRate - (spreadAmount / 2)
+
+			logrus.Infof("Using real-time price: $%.2f -> %d TAP units/BTC (sell rate)",
+				price, sellRate)
+			return rfqmath.NewBigIntFixedPoint(sellRate, 0)
+		}
+	}
+
+	// Fallback to base rate calculation
 	spreadAmount := (baseAssetRate * spreadPercentage) / 100
 	sellRate := baseAssetRate - (spreadAmount / 2)
+	logrus.Infof("Using base rate: %d TAP units/BTC (sell rate)", sellRate)
 	return rfqmath.NewBigIntFixedPoint(uint64(sellRate), 0)
 }
 
@@ -474,6 +745,27 @@ func generateSelfSignedCert() (tls.Certificate, error) {
 func main() {
 	setupLogger()
 
+	// Initialize and start the Kraken WebSocket client
+	logrus.Info("Initializing Kraken WebSocket client...")
+	globalWSClient = NewKrakenWebSocketClient()
+
+	// Connect to Kraken WebSocket
+	err := globalWSClient.Connect()
+	if err != nil {
+		logrus.Warnf("Failed to connect to Kraken WebSocket: %v", err)
+		logrus.Info("Continuing with base rate pricing...")
+	} else {
+		// Subscribe to BTC/USD ticker
+		err = globalWSClient.Subscribe("BTC/USD")
+		if err != nil {
+			logrus.Warnf("Failed to subscribe to XBT/USD ticker: %v", err)
+		} else {
+			// Start reading messages in a goroutine
+			go globalWSClient.ReadMessages()
+			logrus.Info("Kraken WebSocket client started successfully")
+		}
+	}
+
 	// Start the mock RPC price oracle service.
 	//
 	// Generate self-signed certificate. This allows us to use TLS for the
@@ -492,6 +784,11 @@ func main() {
 	err = startService(backendService)
 	if err != nil {
 		log.Fatalf("Start service error: %v", err)
+	}
+
+	// Clean up WebSocket connection
+	if globalWSClient != nil {
+		globalWSClient.Close()
 	}
 
 	backendService.GracefulStop()

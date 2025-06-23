@@ -83,6 +83,7 @@ func testPurchaseQuery(client oraclerpc.PriceOracleClient) {
 		AssetRatesHint:  nil,
 	}
 
+	dumpRequest(req)
 	resp, err := client.QueryAssetRates(ctx, req)
 	if err != nil {
 		log.Printf("Error querying asset rates: %v", err)
@@ -113,6 +114,7 @@ func testSaleQuery(client oraclerpc.PriceOracleClient) {
 		AssetRatesHint:  nil,
 	}
 
+	dumpRequest(req)
 	resp, err := client.QueryAssetRates(ctx, req)
 	if err != nil {
 		log.Printf("Error querying asset rates: %v", err)
@@ -143,6 +145,7 @@ func testUnsupportedAsset(client oraclerpc.PriceOracleClient) {
 		AssetRatesHint:  nil,
 	}
 
+	dumpRequest(req)
 	resp, err := client.QueryAssetRates(ctx, req)
 	if err != nil {
 		log.Printf("Error querying asset rates: %v", err)
@@ -186,6 +189,7 @@ func testWithAssetRatesHint(client oraclerpc.PriceOracleClient) {
 		AssetRatesHint:  hint,
 	}
 
+	dumpRequest(req)
 	resp, err := client.QueryAssetRates(ctx, req)
 	if err != nil {
 		log.Printf("Error querying asset rates: %v", err)
@@ -216,6 +220,7 @@ func testLargeAmountQuery(client oraclerpc.PriceOracleClient) {
 		AssetRatesHint:  nil,
 	}
 
+	dumpRequest(req)
 	resp, err := client.QueryAssetRates(ctx, req)
 	if err != nil {
 		log.Printf("Error querying asset rates: %v", err)
@@ -246,6 +251,7 @@ func testGroupKeyQuery(client oraclerpc.PriceOracleClient) {
 		AssetRatesHint:  nil,
 	}
 
+	dumpRequest(req)
 	resp, err := client.QueryAssetRates(ctx, req)
 	if err != nil {
 		log.Printf("Error querying asset rates: %v", err)
@@ -253,6 +259,97 @@ func testGroupKeyQuery(client oraclerpc.PriceOracleClient) {
 	}
 
 	printResponse(resp)
+}
+
+func dumpRequest(req *oraclerpc.QueryAssetRatesRequest) {
+	fmt.Printf("📤 Request Details:\n")
+
+	// Subject Asset
+	fmt.Printf("  Subject Asset:\n")
+	var subjectAssetStr string
+	if req.SubjectAsset != nil {
+		switch id := req.SubjectAsset.Id.(type) {
+		case *oraclerpc.AssetSpecifier_AssetIdStr:
+			fmt.Printf("    Asset ID: %s\n", id.AssetIdStr)
+			subjectAssetStr = fmt.Sprintf(`"asset_id_str": "%s"`, id.AssetIdStr)
+		case *oraclerpc.AssetSpecifier_GroupKeyStr:
+			fmt.Printf("    Group Key: %s\n", id.GroupKeyStr)
+			subjectAssetStr = fmt.Sprintf(`"group_key_str": "%s"`, id.GroupKeyStr)
+		}
+	}
+
+	// Subject Asset Max Amount
+	fmt.Printf("  Subject Asset Max Amount: %d\n", req.SubjectAssetMaxAmount)
+
+	// Payment Asset
+	fmt.Printf("  Payment Asset:\n")
+	var paymentAssetStr string
+	if req.PaymentAsset != nil {
+		switch id := req.PaymentAsset.Id.(type) {
+		case *oraclerpc.AssetSpecifier_AssetIdStr:
+			fmt.Printf("    Asset ID: %s\n", id.AssetIdStr)
+			paymentAssetStr = fmt.Sprintf(`"asset_id_str": "%s"`, id.AssetIdStr)
+		case *oraclerpc.AssetSpecifier_GroupKeyStr:
+			fmt.Printf("    Group Key: %s\n", id.GroupKeyStr)
+			paymentAssetStr = fmt.Sprintf(`"group_key_str": "%s"`, id.GroupKeyStr)
+		}
+	}
+
+	// Transaction Type
+	fmt.Printf("  Transaction Type: %s\n", req.TransactionType.String())
+
+	// Asset Rates Hint
+	var hintStr string
+	if req.AssetRatesHint != nil {
+		fmt.Printf("  Asset Rates Hint:\n")
+		fmt.Printf("    Subject Asset Rate: %s (scale: %d)\n",
+			req.AssetRatesHint.SubjectAssetRate.Coefficient,
+			req.AssetRatesHint.SubjectAssetRate.Scale)
+		fmt.Printf("    Payment Asset Rate: %s (scale: %d)\n",
+			req.AssetRatesHint.PaymentAssetRate.Coefficient,
+			req.AssetRatesHint.PaymentAssetRate.Scale)
+		fmt.Printf("    Expiry Timestamp: %d (%s)\n",
+			req.AssetRatesHint.ExpiryTimestamp,
+			time.Unix(int64(req.AssetRatesHint.ExpiryTimestamp), 0).Format(time.RFC3339))
+
+		hintStr = fmt.Sprintf(`{
+      "subject_asset_rate": {
+        "coefficient": "%s",
+        "scale": %d
+      },
+      "payment_asset_rate": {
+        "coefficient": "%s",
+        "scale": %d
+      },
+      "expiry_timestamp": %d
+    }`,
+			req.AssetRatesHint.SubjectAssetRate.Coefficient,
+			req.AssetRatesHint.SubjectAssetRate.Scale,
+			req.AssetRatesHint.PaymentAssetRate.Coefficient,
+			req.AssetRatesHint.PaymentAssetRate.Scale,
+			req.AssetRatesHint.ExpiryTimestamp)
+	} else {
+		fmt.Printf("  Asset Rates Hint: null\n")
+		hintStr = "null"
+	}
+
+	// Build the JSON payload
+	jsonPayload := fmt.Sprintf(`{
+  "subject_asset": {
+    %s
+  },
+  "subject_asset_max_amount": %d,
+  "payment_asset": {
+    %s
+  },
+  "transaction_type": "%s",
+  "asset_rates_hint": %s
+}`, subjectAssetStr, req.SubjectAssetMaxAmount, paymentAssetStr, req.TransactionType.String(), hintStr)
+
+	// Output the grpcurl command
+	fmt.Printf("\n🔗 grpcurl Command:\n")
+	fmt.Printf("grpcurl -insecure -d '%s' localhost:8095 rfqrpc.RFQService/QueryAssetRates\n", jsonPayload)
+	fmt.Println()
 }
 
 func printResponse(resp *oraclerpc.QueryAssetRatesResponse) {
