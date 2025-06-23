@@ -42,7 +42,8 @@ import (
 
 const (
 	// serviceListenAddress is the listening address of the service.
-	serviceListenAddress = "localhost:8095"
+	// serviceListenAddress = "localhost:8095"
+	serviceListenAddress = "0.0.0.0:8095"
 
 	// Kraken WebSocket configuration
 	krakenWebSocketURL   = "wss://ws.kraken.com/v2"
