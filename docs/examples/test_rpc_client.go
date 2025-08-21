@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	serverAddress = "localhost:8095"
-	// Updated to match the new supported asset ID (drewcoin)
-	supportedAssetIdStr = "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70"
+	serverAddress = " 192.168.1.110:9095"
+	// Updated to match the new supported asset ID (USDF)
+	supportedAssetIdStr = "5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f"
 )
 
 func main() {
@@ -238,7 +238,7 @@ func testGroupKeyQuery(client oraclerpc.PriceOracleClient) {
 	req := &oraclerpc.QueryAssetRatesRequest{
 		SubjectAsset: &oraclerpc.AssetSpecifier{
 			Id: &oraclerpc.AssetSpecifier_GroupKeyStr{
-				GroupKeyStr: "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d",
+				GroupKeyStr: "03b2bc6331eddcc5076eff6273718a46a37be274cee2b929e5dc5f666fcf3893c3",
 			},
 		},
 		SubjectAssetMaxAmount: 1000,
@@ -348,7 +348,7 @@ func dumpRequest(req *oraclerpc.QueryAssetRatesRequest) {
 
 	// Output the grpcurl command
 	fmt.Printf("\n🔗 grpcurl Command:\n")
-	fmt.Printf("grpcurl -insecure -d '%s' localhost:8095 rfqrpc.RFQService/QueryAssetRates\n", jsonPayload)
+	fmt.Printf("grpcurl -insecure -d '%s' localhost:9095 rfqrpc.RFQService/QueryAssetRates\n", jsonPayload)
 	fmt.Println()
 }
 

@@ -1,5 +1,5 @@
 // This example demonstrates a basic RPC price oracle server that implements the
-// QueryAssetRates RPC method. The server listens on localhost:8095 and returns
+// QueryAssetRates RPC method. The server listens on localhost:9095 and returns
 // the asset rates for a given transaction type, subject asset, and payment
 // asset.
 // Add Kraken API websocket prices from.
@@ -38,12 +38,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 )
 
 const (
 	// serviceListenAddress is the listening address of the service.
-	// serviceListenAddress = "localhost:8095"
-	serviceListenAddress = "0.0.0.0:8095"
+	// serviceListenAddress = "localhost:9095"
+	serviceListenAddress = "0.0.0.0:9095"
 
 	// Kraken WebSocket configuration
 	krakenWebSocketURL   = "wss://ws.kraken.com/v2"
@@ -58,7 +59,10 @@ const (
 	// 	"7b93ace193e9ce53b1a67"
 
 	// drewcoin
-	supportedAssetIdStr = "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70"
+	// supportedAssetIdStr = "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70"
+	// USDF
+	supportedAssetIdStr = "5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f"
+	// supportedAssetIdStr = "728926a632b6e262a3835261a36f8c85405b49a4d9e2976c169e154bddfdbe55"
 
 	// supportedGroupKeyStr is the hex-encoded asset group key for which
 	// this price oracle provides exchange rates.
@@ -66,7 +70,10 @@ const (
 	// 	"fea8930a45e742c81d6fc782"
 
 	// drewcoin
-	supportedGroupKeyStr = "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d"
+	// supportedGroupKeyStr = "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d"
+	// USDF
+	supportedGroupKeyStr = "03b2bc6331eddcc5076eff6273718a46a37be274cee2b929e5dc5f666fcf3893c3"
+	// supportedGroupKeyStr = "025841d1a2f05cb808e2c386da681f16bf45a783a077f5331f38c6411fb0ce506c"
 
 	// baseAssetRate is the base rate for the asset in TAP asset units per BTC.
 	// This represents the "fair" market price before applying spread.
@@ -781,6 +788,9 @@ func main() {
 		Certificates: []tls.Certificate{tlsCert},
 	})
 	backendService := grpc.NewServer(grpc.Creds(transportCredentials))
+
+	// Register reflection service on gRPC server.
+	reflection.Register(backendService)
 
 	err = startService(backendService)
 	if err != nil {

@@ -23,7 +23,7 @@ The basic price oracle server implements the `QueryAssetRates` RPC method from t
 
 ## Server Features
 
-- **Supported Asset**: Only supports one specific asset ID (drewcoin)
+- **Supported Asset**: Only supports one specific asset ID (USDF)
 - **Supported Group Key**: Also supports the asset group key for the same asset
 - **Payment Asset**: Only supports BTC as payment asset
 - **Transaction Types**: Supports both PURCHASE and SALE transactions
@@ -55,7 +55,7 @@ cd basic-price-oracle
 ./basic-price-oracle
 ```
 
-The server will start on `localhost:8095` with TLS enabled.
+The server will start on `localhost:9095` with TLS enabled.
 
 ### Running the Tests
 
@@ -153,10 +153,10 @@ BTC is represented as an asset with all-zero asset ID:
 
 ### Supported Asset
 
-The server supports only one specific asset (drewcoin):
+The server supports only one specific asset (USDF):
 ```
-Asset ID: 11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70
-Group Key: 028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d
+Asset ID: 5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f
+Group Key: 03b2bc6331eddcc5076eff6273718a46a37be274cee2b929e5dc5f666fcf3893c3
 ```
 
 ## Rate Calculation
@@ -215,7 +215,7 @@ spreadPercentage = 20
    ```
    Failed to connect: connection refused
    ```
-   Solution: Check if server is running on port 8095
+   Solution: Check if server is running on port 9095
 
 3. **TLS certificate errors**
    ```
@@ -226,7 +226,7 @@ spreadPercentage = 20
 ### Debugging
 
 - Check server logs in `basic-price-oracle-example.log`
-- Server runs on `localhost:8095` with TLS
+- Server runs on `localhost:9095` with TLS
 - Use `ps aux | grep basic-price-oracle` to check if server is running
 
 ## Development

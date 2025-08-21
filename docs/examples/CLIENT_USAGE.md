@@ -31,7 +31,7 @@ func main() {
     creds := credentials.NewTLS(tlsConfig)
 
     // Connect to the server
-    conn, err := grpc.Dial("localhost:8095", grpc.WithTransportCredentials(creds))
+    conn, err := grpc.Dial("localhost:9095", grpc.WithTransportCredentials(creds))
     if err != nil {
         log.Fatalf("Failed to connect: %v", err)
     }
@@ -47,7 +47,7 @@ func main() {
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-                AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
+                AssetIdStr: "5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f",
             },
         },
         SubjectAssetMaxAmount: 1000,
@@ -90,7 +90,7 @@ Assets are specified using the `AssetSpecifier` message with a oneof field:
 // For hex string representation (recommended for REST)
 assetSpec := &oraclerpc.AssetSpecifier{
     Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-        AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
+        AssetIdStr: "5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f",
     },
 }
 
@@ -104,7 +104,7 @@ assetSpec := &oraclerpc.AssetSpecifier{
 // For group key hex string representation
 groupKeySpec := &oraclerpc.AssetSpecifier{
     Id: &oraclerpc.AssetSpecifier_GroupKeyStr{
-        GroupKeyStr: "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d",
+        GroupKeyStr: "03b2bc6331eddcc5076eff6273718a46a37be274cee2b929e5dc5f666fcf3893c3",
     },
 }
 ```
@@ -154,7 +154,7 @@ func getPurchaseRate(client oraclerpc.PriceOracleClient, amount uint64) (*oracle
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-                AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
+                AssetIdStr: "5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f",
             },
         },
         SubjectAssetMaxAmount: amount,
@@ -193,7 +193,7 @@ func getPurchaseRateByGroupKey(client oraclerpc.PriceOracleClient, amount uint64
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_GroupKeyStr{
-                GroupKeyStr: "028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d",
+                GroupKeyStr: "03b2bc6331eddcc5076eff6273718a46a37be274cee2b929e5dc5f666fcf3893c3",
             },
         },
         SubjectAssetMaxAmount: amount,
@@ -232,7 +232,7 @@ func acceptProposedRate(client oraclerpc.PriceOracleClient, proposedRate *oracle
     req := &oraclerpc.QueryAssetRatesRequest{
         SubjectAsset: &oraclerpc.AssetSpecifier{
             Id: &oraclerpc.AssetSpecifier_AssetIdStr{
-                AssetIdStr: "11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70",
+                AssetIdStr: "5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f",
             },
         },
         SubjectAssetMaxAmount: amount,
@@ -317,7 +317,7 @@ creds := credentials.NewTLS(tlsConfig)
 
 ```go
 // Create connection with options
-conn, err := grpc.Dial("localhost:8095", 
+conn, err := grpc.Dial("localhost:9095", 
     grpc.WithTransportCredentials(creds),
     grpc.WithBlock(),
     grpc.WithTimeout(5*time.Second),
@@ -362,9 +362,9 @@ You can use the provided test client (`test_rpc_client.go`) as a reference for t
 
 ## Supported Assets
 
-The current server supports the following asset (drewcoin):
+The current server supports the following asset (USDF):
 
-- **Asset ID**: `11c6f5e7e84e9306c7ababacab239088f430fe14cab9c00c01ba6a9857cc4a70`
-- **Group Key**: `028dcdee288a9ece152a5d61ec07d8330c31928497e1f3dbb7e7125852d69dd12d`
+- **Asset ID**: `5fd506e36846597e5699bdf550a20946a3af85bb2415aa4d74aad9e922d9053f`
+- **Group Key**: `03b2bc6331eddcc5076eff6273718a46a37be274cee2b929e5dc5f666fcf3893c3`
 
 Both the asset ID and group key can be used to query rates for the same asset. 
